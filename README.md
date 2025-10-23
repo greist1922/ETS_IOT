@@ -1,5 +1,6 @@
  # Proyek Monitoring Suhu dan Kelembapan DHT22 dengan ESP32-S3 dan ThingsBoard
 
+1. Pendahuluan
 Proyek ini bertujuan untuk memantau kondisi suhu dan kelembapan menggunakan sensor **DHT22** yang terhubung ke **ESP32-S3**. Data hasil pembacaan sensor dikirim secara realtime ke platform **ThingsBoard Cloud** melalui protokol **MQTT**. Selain itu, perangkat juga mendukung **pembaruan firmware OTA (Over The Air)** sehingga tidak perlu flashing ulang lewat kabel jika ada pembaruan program.
 
 ---
