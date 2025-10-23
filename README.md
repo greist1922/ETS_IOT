@@ -1,145 +1,193 @@
-# 🚀 ESP32 Rust OTA & ThingsBoard Integration
+ # Proyek Monitoring Suhu dan Kelembapan DHT22 dengan ESP32-S3 dan ThingsBoard
 
-Proyek ini merupakan implementasi **ESP32 dengan Rust** menggunakan framework `esp-idf-svc`.  
-Sistem ini mendukung:
-- 🔌 Koneksi WiFi otomatis  
-- 🌐 Integrasi MQTT dengan **ThingsBoard Cloud**  
-- ⚡ Over-The-Air (OTA) update melalui RPC  
-- 🌡️ Sensor DHT22 untuk pembacaan suhu & kelembapan  
-- 💾 Pengiriman data ke ThingsBoard secara real-time  
+Proyek ini bertujuan untuk memantau kondisi suhu dan kelembapan menggunakan sensor **DHT22** yang terhubung ke **ESP32-S3**. Data hasil pembacaan sensor dikirim secara realtime ke platform **ThingsBoard Cloud** melalui protokol **MQTT**. Selain itu, perangkat juga mendukung **pembaruan firmware OTA (Over The Air)** sehingga tidak perlu flashing ulang lewat kabel jika ada pembaruan program.
 
 ---
 
-## 🧱 Struktur Proyek
+2. Komponen yang Digunakan
+No	Komponen	Fungsi
+1	ESP32-S3 DevKit	Mikrokontroler utama
+2	Sensor DHT22	Sensor suhu dan kelembapan
+3	Kabel USB Type-C	Menghubungkan ESP32 ke laptop
+4	Ubuntu 22.04	Sistem operasi pengembangan
+5	ThingsBoard	Platform IoT untuk monitoring data
 
-├── src/
-│ └── main.rs # Program utama ESP32 (WiFi, MQTT, OTA)
-├── Cargo.toml # Konfigurasi dependency dan build
-├── partition_table.csv # Tabel partisi ESP32 (OTA, SPIFFS, dll)
-├── .gitignore # File pengecualian untuk Git
-├── LICENSE # Lisensi proyek (MIT)
-└── README.md # Dokumentasi proyek
+3. Persiapan
+   
+Instalasi Dependensi Dasar
 
+sudo apt update
+sudo apt install git curl python3 python3-pip -y
 
----
+Instalasi Rust dan ESP-IDF
 
-## ⚙️ Fitur Utama
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+cargo install espup
+espup install
 
-### 1. WiFi Connection
-Perangkat otomatis terhubung ke jaringan WiFi dengan SSID dan password yang didefinisikan di kode.
+Aktifkan environment:
 
-### 2. MQTT & ThingsBoard
-Koneksi ke broker MQTT ThingsBoard (`mqtt.thingsboard.cloud`) menggunakan access token device.
+. $HOME/export-esp.sh
 
-### 3. OTA Update
-- OTA dilakukan melalui **perintah RPC** dengan payload JSON berisi URL firmware baru.  
-- Firmware diunduh via HTTP, diverifikasi, lalu menggantikan partisi OTA aktif.
+- Membuat Proyek Baru
 
-### 4. Sensor DHT22
-Membaca data suhu dan kelembapan, dikirimkan secara periodik ke ThingsBoard dalam format JSON.
+cargo new dht_esp32 --bin
+cd dht_esp32
 
----
+4. Konfigurasi Cargo.toml
 
-## 🔧 Build & Flash
+Buka file Cargo.toml, lalu isi seperti di bawah ini:
 
-### 1. Build release
-```bash
-cargo build --release
+[package]
+name = "dht_esp32"
+version = "0.1.0"
+edition = "2021"
+authors = ["Greista Tezar Rizki Saputra"]
+resolver = "2"
+rust-version = "1.77"
 
-2. Flash ke ESP32
+[dependencies]
+esp-idf-svc = "0.51"
+embedded-svc = "0.28"
+dht-sensor = "0.2"
+anyhow = "1.0"
+serde_json = "1.0"
+log = "0.4"
+rand = "0.8"
 
-espflash flash --partition-table partition_table.csv target/xtensa-esp32-espidf/release/dev --port /dev/ttyUSB0
+[build-dependencies]
+embuild = "0.33"
 
-3. Monitoring log
+[package.metadata.esp-idf]
+partition_table = "partition_table.csv"
 
-espflash monitor /dev/ttyUSB0
+5. Rangkaian DHT22 ke ESP32-S3
+DHT22	ESP32-S3	Keterangan
+VCC	3.3V	Tegangan kerja
+DATA	GPIO4	Jalur data
+GND	GND	Ground
 
-🔄 OTA Update via ThingsBoard
+    Disarankan menambahkan resistor 10kΩ antara VCC dan DATA biar pembacaan sensor lebih stabil.
 
-    Buka ThingsBoard → Device → RPC
+6. Kode Program (src/main.rs)
 
-    Kirim payload RPC seperti berikut:
+use anyhow::Result;
+use esp_idf_svc::{
+    eventloop::EspSystemEventLoop,
+    hal::{delay::Ets, peripherals::Peripherals, prelude::*},
+    mqtt::client::*,
+    nvs::EspDefaultNvsPartition,
+    wifi::*,
+    log::EspLogger,
+};
+use dht_sensor::*;
+use serde_json::json;
+use std::{thread, time::Duration};
 
-{
-  "method": "ota_update",
-  "params": {
-    "ota_url": "http://your-server.com/firmware.bin"
-  }
+fn main() -> Result<()> {
+    EspLogger::initialize_default();
+    let peripherals = Peripherals::take().unwrap();
+    let sysloop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+
+    // Setup WiFi
+    let mut wifi = EspWifi::new(peripherals.modem, sysloop.clone(), Some(nvs))?;
+    wifi.set_configuration(&Configuration::Client(ClientConfiguration {
+        ssid: "NAMA_WIFI".try_into()?,
+        password: "PASSWORD_WIFI".try_into()?,
+        ..Default::default()
+    }))?;
+    wifi.start()?;
+    wifi.connect()?;
+
+    while !wifi.is_connected().unwrap() {
+        println!("Menghubungkan ke WiFi...");
+        thread::sleep(Duration::from_secs(1));
+    }
+    println!("WiFi berhasil tersambung!");
+
+    // Setup MQTT ThingsBoard
+    let mqtt_url = "mqtt://demo.thingsboard.io:1883";
+    let access_token = "ACCESS_TOKEN_MU";
+    let mqtt_client = EspMqttClient::new(
+        mqtt_url,
+        &MqttClientConfiguration {
+            username: Some(access_token),
+            ..Default::default()
+        },
+        move |_, _| {},
+    )?;
+
+    let pin = peripherals.pins.gpio4;
+    let mut delay = Ets;
+
+    // Loop baca sensor dan kirim ke ThingsBoard
+    loop {
+        match dht22::Reading::read(&mut delay, pin) {
+            Ok(reading) => {
+                let data = json!({
+                    "temperature": reading.temperature,
+                    "humidity": reading.relative_humidity
+                });
+                println!("Data terbaca: {:?}", data);
+                mqtt_client.publish(
+                    "v1/devices/me/telemetry",
+                    QoS::AtLeastOnce,
+                    false,
+                    data.to_string().as_bytes(),
+                )?;
+            }
+            Err(e) => println!("Gagal membaca sensor: {:?}", e),
+        }
+        thread::sleep(Duration::from_secs(5));
+    }
 }
 
-    Perangkat akan mengunduh firmware dan restart otomatis setelah update selesai.
+7. Build dan Upload ke ESP32
 
-🧠 Dibangun Dengan
+Tambahkan target ESP32-S3:
 
-    🦀 Rust
+rustup target add xtensa-esp32s3-none-elf
 
-🧩 esp-idf-svc
+Build proyek:
 
-☁️ ThingsBoard Cloud
+cargo build
 
-💡 ESP32 DevKitC
-👤 Author
+Cek port board:
 
-Greista Tezar Rizki Saputra
-Teknik Instrumentasi, Institut Teknologi Sepuluh Nopember
-📍 Madiun, Indonesia
-📜 Lisensi
+ls /dev/ttyUSB*
 
-Proyek ini dilisensikan di bawah MIT License
+Upload ke ESP:
 
-.
+espflash flash target/xtensa-esp32s3-none-elf/debug/dht_esp32 --monitor
 
-    🧠 Catatan: Pastikan ukuran firmware tidak melebihi kapasitas partisi OTA (0x1E0000) agar proses update berjalan lancar.
+8. Setting ThingsBoard
+
+    Buka https://demo.thingsboard.io
+
+    Login → pilih Devices → Add New Device
+
+    Buka tab Credentials, salin Access Token
+
+    Tempel token itu di bagian kode (access_token)
+
+    Jalankan board → buka tab Latest Telemetry → data akan muncul otomatis
+
+Contoh data yang diterima:
+
+{
+  "temperature": 28.5,
+  "humidity": 72.1
+}
+
+9. Hasil Uji Coba
+
+Setelah board dijalankan, data suhu dan kelembapan dari DHT22 muncul di ThingsBoard setiap 5 detik.
+Data bisa ditampilkan dalam bentuk grafik atau gauge di dashboard ThingsBoard.
 
 
----
-
-### 🧾 **LICENSE**
-
-```text
-MIT License
-
-Copyright (c) 2025 Greista Tezar Rizki Saputra
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-⚙️ .gitignore
-
-# Rust build
-/target/
-/debug/
-Cargo.lock
-
-# ESP-IDF build artifacts
-sdkconfig
-sdkconfig.old
-build/
-*.bin
-*.elf
-*.map
-
-# Logs
-*.log
-
-# Editor/OS files
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.swp
+Penulis/NRP: Greista Tezar Rizki Saputra/2042231079
+           : Zudan Rizky Aditya/2042231007
+Jurusan: Teknik Instrumentasi – ITS
+Tahun Angkatan: 2023
