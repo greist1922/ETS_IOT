@@ -1,11 +1,13 @@
- # Proyek Monitoring Suhu dan Kelembapan DHT22 dengan ESP32-S3 dan ThingsBoard
-
+Proyek Monitoring Suhu dan Kelembapan DHT22 dengan ESP32-S3 dan ThingsBoard
 1. Pendahuluan
-Proyek ini bertujuan untuk memantau kondisi suhu dan kelembapan menggunakan sensor **DHT22** yang terhubung ke **ESP32-S3**. Data hasil pembacaan sensor dikirim secara realtime ke platform **ThingsBoard Cloud** melalui protokol **MQTT**. Selain itu, perangkat juga mendukung **pembaruan firmware OTA (Over The Air)** sehingga tidak perlu flashing ulang lewat kabel jika ada pembaruan program.
 
----
+Proyek ini dibuat dengan tujuan untuk memantau kondisi suhu dan kelembapan lingkungan secara real-time menggunakan sensor DHT22 yang terhubung ke ESP32-S3. Data dari sensor dikirim ke platform ThingsBoard Cloud melalui protokol MQTT.
+Selain itu, sistem ini juga dapat dikembangkan untuk mendukung fitur OTA (Over The Air Update) sehingga pembaruan firmware dapat dilakukan secara jarak jauh tanpa harus menggunakan kabel USB untuk flashing ulang.
 
+Proyek ini menjadi contoh penerapan Internet of Things (IoT) di bidang monitoring lingkungan, di mana sensor dan mikrokontroler bekerja sama untuk mengumpulkan serta mengirimkan data ke platform cloud secara otomatis.
 2. Alat dan Bahan
+
+Berikut alat dan bahan yang digunakan dalam proyek ini:
 
     ESP32-S3 Dev Board
 
@@ -21,28 +23,37 @@ Proyek ini bertujuan untuk memantau kondisi suhu dan kelembapan menggunakan sens
 
 3. Persiapan Awal
 
-    Pastikan Ubuntu sudah terinstal Rust dan toolchain lengkap dengan perintah:
+Sebelum memulai pembuatan sistem, lakukan beberapa langkah instalasi dan konfigurasi berikut:
+a. Instalasi Rust dan Toolchain
+
+Pastikan Ubuntu sudah terinstal Rust dan toolchain yang diperlukan.
 
 sudo apt update
 sudo apt install build-essential pkg-config libssl-dev cmake
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup default stable
 
-Instal esp-idf environment:
+b. Instalasi ESP-IDF Environment
+
+ESP-IDF digunakan untuk mendukung kompilasi dan komunikasi dengan perangkat ESP32.
 
 cargo install espup
 espup install
 source ~/export-esp.sh
 
-Tambahkan support target ESP32-S3:
+c. Tambahkan Target untuk ESP32-S3
 
 rustup target add xtensa-esp32s3-none-elf
 
-Pastikan kabel data terhubung dengan benar, lalu cek port:
+d. Cek Port ESP32-S3
 
-    ls /dev/ttyUSB*
+Pastikan board sudah terhubung dengan benar.
 
-Struktur Folder Proyek
+ls /dev/ttyUSB*
+
+4. Struktur Folder Proyek
+
+Struktur proyek secara umum adalah sebagai berikut:
 
 dev/
 ├── src/
@@ -52,15 +63,15 @@ dev/
 ├── build.rs
 └── README.md
 
-4. Langkah-Langkah Pembuatan
-- Buat Proyek Baru
+5. Langkah-Langkah Pembuatan
+a. Membuat Proyek Baru
 
 cargo new dev
 cd dev
 
-- Tambahkan Dependency
+b. Menambahkan Dependency
 
-Masukkan semua library yang dibutuhkan pada file Cargo.toml seperti:
+Tambahkan library berikut di dalam file Cargo.toml:
 
     esp-idf-svc
 
@@ -72,65 +83,76 @@ Masukkan semua library yang dibutuhkan pada file Cargo.toml seperti:
 
     heapless
 
-- Hubungkan Sensor
+Library tersebut digunakan untuk menangani komunikasi MQTT, pengolahan JSON, pembacaan sensor, serta logging sistem.
+c. Menghubungkan Sensor DHT22 ke ESP32-S3
 
-    VCC DHT22 ke 3.3V ESP32-S3
+Hubungkan pin sensor dengan mikrokontroler sebagai berikut:
+Pin DHT22	Pin ESP32-S3	Keterangan
+VCC	3.3V	Daya utama
+GND	GND	Ground
+DATA	GPIO4	Jalur data sensor
+d. Mengatur Koneksi Wi-Fi dan ThingsBoard
 
-    GND DHT22 ke GND ESP32-S3
+Konfigurasikan SSID dan password Wi-Fi langsung di dalam kode.
+Kemudian, masukkan Access Token dari ThingsBoard untuk otentikasi MQTT agar data dapat dikirim ke server dengan benar.
+e. Kompilasi Program
 
-    Data DHT22 ke GPIO4
-
-- Atur Wi-Fi dan Token ThingsBoard
-
-Gunakan SSID dan password Wi-Fi pada konfigurasi, lalu masukkan token akses dari ThingsBoard di bagian MQTT.
-- Kompilasi Proyek
-
-Jalankan:
+Setelah semua konfigurasi selesai, lakukan proses kompilasi:
 
 cargo build
 
-- Flash ke ESP32-S3
+f. Flash ke ESP32-S3
 
-Gunakan perintah:
+Gunakan perintah berikut untuk mengunggah firmware ke board:
 
 espflash flash target/xtensa-esp32s3-none-elf/debug/dev
 
-- Jalankan Serial Monitor
+g. Monitoring Serial
 
-Setelah proses flash selesai, gunakan perintah berikut untuk memantau log:
+Untuk melihat log atau data yang dikirim, gunakan:
 
 espflash monitor
 
-Jika semua konfigurasi benar, terminal akan menampilkan log bahwa ESP32 berhasil terkoneksi ke Wi-Fi dan mengirim data ke ThingsBoard Cloud.
-Tampilan di ThingsBoard Cloud
+Apabila konfigurasi sudah benar, akan muncul log bahwa ESP32-S3 berhasil terkoneksi ke jaringan Wi-Fi dan mulai mengirim data suhu serta kelembapan ke ThingsBoard Cloud.
+6. Tampilan di ThingsBoard Cloud
 
-    Buka dashboard di ThingsBoard Cloud.
+    Masuk ke dashboard ThingsBoard Cloud.
 
-    Buat device baru dengan nama bebas (misalnya: ESP32-DHT22).
+    Buat device baru (contoh: ESP32-DHT22).
 
-    Ambil Access Token dari device tersebut.
+    Salin Access Token dari device tersebut ke program.
 
-    Data suhu dan kelembapan akan muncul secara berkala sesuai interval waktu pengiriman dari ESP32-S3.
+    Jalankan perangkat dan buka tab “Latest Telemetry”.
 
-5. Troubleshooting
+    Data suhu dan kelembapan akan muncul secara periodik.
 
-    Jika Wi-Fi tidak tersambung, pastikan SSID dan password benar.
+Kamu juga dapat menambahkan widget grafik dan gauge pada dashboard agar data sensor dapat divisualisasikan secara menarik dan informatif.
+7. Troubleshooting
 
-    Jika data tidak muncul di ThingsBoard, periksa token MQTT.
+Beberapa masalah umum yang mungkin terjadi beserta solusinya:
+Permasalahan	Penyebab	Solusi
+Wi-Fi tidak tersambung	SSID atau password salah	Periksa kembali konfigurasi Wi-Fi
+Data tidak muncul di ThingsBoard	Token MQTT salah	Pastikan Access Token sesuai dengan device di ThingsBoard
+Sensor tidak terbaca	Salah pin atau kabel longgar	Cek kembali jalur koneksi dan pastikan pin GPIO benar
+Build error	Cache Rust bermasalah	Jalankan cargo clean, lalu build ulang
+8. Hasil dan Analisis
 
-    Pastikan sensor DHT22 tersambung dengan benar (cek wiring dan kabel jumper).
+Dari hasil pengujian, sistem mampu membaca dan mengirimkan data suhu serta kelembapan dengan interval waktu tertentu secara stabil.
+Data yang diterima di ThingsBoard menunjukkan bahwa sensor DHT22 dapat bekerja dengan baik dan akurat untuk kebutuhan monitoring lingkungan.
 
-    Gunakan cargo clean bila terjadi error build, lalu build ulang.
+Implementasi berbasis Rust pada ESP32-S3 memberikan performa yang efisien, ringan, dan stabil. Selain itu, penggunaan ThingsBoard Cloud memungkinkan visualisasi data dalam bentuk grafik dan indikator yang mudah dibaca.
+9. Kesimpulan
 
-6. Hasil dan Analisis
+Proyek ini membuktikan bahwa ESP32-S3 dapat digunakan sebagai perangkat IoT yang handal untuk sistem monitoring berbasis cloud.
+Dengan bantuan sensor DHT22, data suhu dan kelembapan dapat dikirimkan secara real-time ke ThingsBoard Cloud melalui MQTT.
+Selain efisien, proyek ini juga mudah dikembangkan lebih lanjut, misalnya dengan menambahkan fitur OTA, penyimpanan lokal, atau integrasi dengan sistem automasi lainnya.
+10. Identitas Penulis
 
-Proyek berhasil mengirimkan data suhu dan kelembapan secara berkala ke platform ThingsBoard. Dengan memanfaatkan Rust dan ESP-IDF, sistem berjalan stabil dan efisien. Nilai pembacaan sensor dapat divisualisasikan dalam bentuk grafik dan tabel di dashboard ThingsBoard.
-Kesimpulan
+Nama:
 
-Proyek ini menunjukkan bahwa ESP32-S3 dapat digunakan untuk sistem monitoring IoT berbasis cloud menggunakan ThingsBoard dengan bahasa pemrograman Rust secara real-time.
+    Greista Tezar Rizki Saputra (NRP: 2042231079)
 
+    Zudan Rizky Aditya (NRP: 2042231007)
 
-Penulis/NRP: Greista Tezar Rizki Saputra/2042231079
-           : Zudan Rizky Aditya/2042231007
-Jurusan: Teknik Instrumentasi – ITS
+Jurusan: Teknik Instrumentasi – Institut Teknologi Sepuluh Nopember (ITS)
 Tahun Angkatan: 2023
