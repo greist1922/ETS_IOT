@@ -127,6 +127,7 @@ Apabila konfigurasi sudah benar, akan muncul log bahwa ESP32-S3 berhasil terkone
     Data suhu dan kelembapan akan muncul secara periodik.
 
 Kamu juga dapat menambahkan widget grafik dan gauge pada dashboard agar data sensor dapat divisualisasikan secara menarik dan informatif.
+
 7. Troubleshooting
 
 Beberapa masalah umum yang mungkin terjadi beserta solusinya:
@@ -135,17 +136,20 @@ Wi-Fi tidak tersambung	SSID atau password salah	Periksa kembali konfigurasi Wi-F
 Data tidak muncul di ThingsBoard	Token MQTT salah	Pastikan Access Token sesuai dengan device di ThingsBoard
 Sensor tidak terbaca	Salah pin atau kabel longgar	Cek kembali jalur koneksi dan pastikan pin GPIO benar
 Build error	Cache Rust bermasalah	Jalankan cargo clean, lalu build ulang
+
 8. Hasil dan Analisis
 
 Dari hasil pengujian, sistem mampu membaca dan mengirimkan data suhu serta kelembapan dengan interval waktu tertentu secara stabil.
 Data yang diterima di ThingsBoard menunjukkan bahwa sensor DHT22 dapat bekerja dengan baik dan akurat untuk kebutuhan monitoring lingkungan.
 
 Implementasi berbasis Rust pada ESP32-S3 memberikan performa yang efisien, ringan, dan stabil. Selain itu, penggunaan ThingsBoard Cloud memungkinkan visualisasi data dalam bentuk grafik dan indikator yang mudah dibaca.
+
 9. Kesimpulan
 
 Proyek ini membuktikan bahwa ESP32-S3 dapat digunakan sebagai perangkat IoT yang handal untuk sistem monitoring berbasis cloud.
 Dengan bantuan sensor DHT22, data suhu dan kelembapan dapat dikirimkan secara real-time ke ThingsBoard Cloud melalui MQTT.
 Selain efisien, proyek ini juga mudah dikembangkan lebih lanjut, misalnya dengan menambahkan fitur OTA, penyimpanan lokal, atau integrasi dengan sistem automasi lainnya.
+
 10. Identitas Penulis
 
 Nama:
