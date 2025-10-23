@@ -85,7 +85,6 @@ use esp_idf_svc::{
 use dht_sensor::*;
 use serde_json::json;
 use std::{thread, time::Duration};
-
 fn main() -> Result<()> {
     EspLogger::initialize_default();
     let peripherals = Peripherals::take().unwrap();
